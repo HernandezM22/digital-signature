@@ -1,50 +1,96 @@
 import PySimpleGUI as sg
+import os
+import sympy
 
 admin_usernames = ["admin"]
 usernames = ["user1", "user2"]
 passwords = ["123","abcd"]
 
-# 3 Layouts de las diferentes funciones del programa
-layout_key_gen = [[sg.Text('Menu')],
-                    [sg.Button('Generar llave'),sg.Button('Salir')]]
-
-layout_validation = [[sg.Text('Menu')],         
-                    [sg.Button('Firmar Documento'),sg.Button('Verificar Firma'), sg.Button("Salir")]]
-
-layout_login = [[sg.Text("Ingresar", size =(15, 1), font=40)],
-            [sg.Text("Nombre de usuario", size =(15, 1), font=16),sg.InputText(key='-usrnm-', font=16)],
-            [sg.Text("Contraseña", size =(15, 1), font=16),sg.InputText(key='-pwd-', password_char='*', font=16)],
-            [sg.Button('Ok'),sg.Button('Salir')]]
 
 
-#window = sg.Window('Sistema de Firma Electrónica', layout_login)
-#
-#layout = 1  # The currently visible layout
-#while True:
-#    event, values = window.read()
-#    print(event, values)
-#    if event in (None, 'Exit'):
-#        break
-#    if event in '123':
-#        window[f'-COL{layout}-'].update(visible=False)
-#        layout = int(event)
-#        window[f'-COL{layout}-'].update(visible=True)
-#window.close()
-
-def progress_bar():
+def progress_bar(message):
     sg.theme('LightBlue2')
-    layout = [[sg.Text('Creating your account...')],
+    layout = [[sg.Text(message)],
             [sg.ProgressBar(1000, orientation='h', size=(20, 20), key='progbar')],
-            [sg.Cancel()]]
+            [sg.Button("Cancelar")]]
 
-    window = sg.Window('Working...', layout)
+    window = sg.Window('Espere', layout)
     for i in range(1000):
         event, values = window.read(timeout=1)
-        if event == 'Cancel' or event == sg.WIN_CLOSED:
+        if event == 'Cancelar' or event == sg.WIN_CLOSED:
             break
         window['progbar'].update_bar(i + 1)
     window.close()
 
+def signing_interface():
+
+    sg.theme("LightBlue2")
+    layout_validation = [[sg.Text('Seleccionar una opción:')],         
+                    [sg.Button('Firmar Documento'),sg.Button('Verificar Firma'), sg.Button("Atras")]]
+
+    window = sg.Window("Fima y validacion", layout_validation)
+
+    while True:
+        event, values = window.read()
+
+        if event == sg.WIN_CLOSED:
+            break
+
+        elif event == "Atras":
+            window.close()
+            menu()
+            break
+
+        elif event == "Firmar Documento":
+            progress_bar(message = "Firmando documento...")
+
+        elif event == "Verificar Firma":
+            progress_bar(message = "Verificando firma...")
+
+
+
+def gen_signature():
+    sg.theme("LightBlue2")
+
+    layout_key_gen = [[sg.Text('Seleccionar una opción:')],
+                    [sg.Button('Generar llave'),sg.Button('Atras')]]
+
+    window = sg.Window("Generacion de Claves", layout_key_gen)
+
+    while True:
+        event, values = window.read()
+
+        if event == sg.WIN_CLOSED:
+            break
+
+        elif event == "Atras":
+            window.close()
+            menu()
+            break
+
+        elif event == "Generar llave":
+            progress_bar(message = "Generando par de llaves...")
+
+
+def menu():
+    sg.theme("LightBlue2")
+    layout = [[sg.Text("Menu")],
+                [sg.Button("Creación de llaves"), sg.Button("Firma de documentos"), sg.Button("Salir")]]
+
+    window = sg.Window("Menú principal", layout)
+
+    while True:
+        event, values = window.read()
+        if event == "Salir" or event == sg.WIN_CLOSED:
+            break
+        elif event == "Creación de llaves":
+            window.close()
+            gen_signature()
+        elif event == "Firma de documentos":
+            window.close()
+            signing_interface()
+
+            
 def login():
     global usernames, admin_usernames, passwords
     sg.theme("LightBlue2")
@@ -63,6 +109,8 @@ def login():
             if event == "Entrar":
                 if values['-usrnm-'] in usernames and values['-pwd-'] in passwords:
                     sg.popup("Bienvenido!")
+                    window.close()
+                    return True
                     break
                 elif values['-usrnm-'] not in usernames or values['-pwd-'] not in passwords:
                     sg.popup("Información incorrecta. Intente de nuevo.")
@@ -71,7 +119,9 @@ def login():
 
 def main():
 
-    login()
+    if login():
+        menu()
+
 
 
 
