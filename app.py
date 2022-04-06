@@ -1,11 +1,68 @@
 import PySimpleGUI as sg
 import os
-import sympy
+from Crypto.PublicKey import RSA
+import libnum
+import sys
+import hashlib
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import ECC
+from Crypto.Signature import DSS
 
 admin_usernames = ["admin"]
 usernames = ["user1", "user2"]
 passwords = ["123","abcd"]
 
+
+
+
+def rsa_key_generation():
+
+    key = RSA.generate(2048)
+    private_key = key.export_key()
+    file_out = open("private.pem", "wb")
+    file_out.write(private_key)
+    file_out.close()
+
+    public_key = key.publickey().export_key()
+    file_out = open("public.pem", "wb")
+    file_out.write(public_key)
+    file_out.close()
+
+
+def get_file_hash(file_name):
+
+    file_hash = hashlib.sha256
+
+    with open(file_name, "rb") as file:
+        ck = 0
+
+        while ck != b'':
+            ck = file.read(1024)
+            file_hash.update(ck)
+
+    return file_hash.hexdigest()
+
+
+def sign_document():
+    sg.theme("LightBlue2")
+    layout = [[sg.T("")], [sg.Text("Escoger un documento: "), sg.Input(), sg.FileBrowse(key="-IN-")],[sg.Button("Firmar"), sg.Button("Atras")]]
+
+    window = sg.Window("Firma de documentos", layout)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED or event =="Exit":
+            break
+        elif event == "Firmar":
+            print(values["-IN-"])
+        elif event == "Atras":
+            window.close()
+            signing_interface()
+            break
+
+
+
+#def certificate_generation():
 
 
 def progress_bar(message):
@@ -42,7 +99,9 @@ def signing_interface():
             break
 
         elif event == "Firmar Documento":
-            progress_bar(message = "Firmando documento...")
+            window.close()
+            sign_document()
+            break
 
         elif event == "Verificar Firma":
             progress_bar(message = "Verificando firma...")
@@ -70,6 +129,9 @@ def gen_signature():
 
         elif event == "Generar llave":
             progress_bar(message = "Generando par de llaves...")
+            rsa_key_generation()
+            sg.popup("Generación completa")
+
 
 
 def menu():
