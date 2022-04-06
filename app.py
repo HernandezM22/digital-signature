@@ -6,7 +6,7 @@ import sys
 import hashlib
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
-from Crypto.Signature import DSS
+from Crypto.Signature import pss
 
 admin_usernames = ["admin"]
 usernames = ["user1", "user2"]
@@ -18,12 +18,12 @@ passwords = ["123","abcd"]
 def rsa_key_generation():
 
     key = RSA.generate(2048)
-    private_key = key.export_key()
+    private_key = key.export_key(format="PEM")
     file_out = open("private.pem", "wb")
     file_out.write(private_key)
     file_out.close()
 
-    public_key = key.publickey().export_key()
+    public_key = key.publickey().export_key(format="PEM")
     file_out = open("public.pem", "wb")
     file_out.write(public_key)
     file_out.close()
@@ -31,7 +31,7 @@ def rsa_key_generation():
 
 def get_file_hash(file_name):
 
-    file_hash = hashlib.sha256
+    file_hash = hashlib.sha256()
 
     with open(file_name, "rb") as file:
         ck = 0
@@ -54,7 +54,19 @@ def sign_document():
         if event == sg.WIN_CLOSED or event =="Exit":
             break
         elif event == "Firmar":
-            print(values["-IN-"])
+            progress_bar(message="Firmando documento...")
+
+            doc = values["-IN-"]
+            file_hash = str(get_file_hash(doc))
+            key = RSA.import_key(open("private.pem").read())
+            hs = SHA256.new(file_hash.encode("ascii"))
+            sgnr = pss.new(key)
+            signature = sgnr.sign(hs)
+
+            file_out = open("document_signature.pem", "wb")
+            file_out.write(signature)
+            file_out.close()
+
         elif event == "Atras":
             window.close()
             signing_interface()
