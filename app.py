@@ -66,12 +66,47 @@ def sign_document():
             file_out = open("document_signature.pem", "wb")
             file_out.write(signature)
             file_out.close()
+            sg.popup("Firma exitosa")
 
         elif event == "Atras":
             window.close()
             signing_interface()
             break
 
+def verify_signature():
+    sg.theme("LightBlue2")
+    layout = [[sg.T("")], [sg.Text("Escoger un documento: "), sg.Input(), sg.FileBrowse(key="-IN-")],[sg.Button("Verificar"), sg.Button("Atras")]]
+
+    window = sg.Window("Verificación de fimas", layout)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED or event =="Exit":
+            break
+        elif event == "Verificar":
+            progress_bar(message="Verificando firma...")
+
+            doc = values["-IN-"]
+            file_hash = str(get_file_hash(doc))
+            key = RSA.import_key(open("private.pem").read())
+            hs = SHA256.new(file_hash.encode("ascii"))
+            sgnr = pss.new(key)
+            signature = sgnr.sign(hs)
+
+            p_key = RSA.import_key(open('public.pem').read())
+            hs = SHA256.new(file_hash.encode("ascii"))
+
+            verifier = pss.new(key)
+            try:
+                verifier.verify(hs, signature)
+                sg.popup("La firma es autentica")
+            except (ValueError, TypeError):
+                sg.popup("La firma no es autentica")
+
+        elif event == "Atras":
+            window.close()
+            signing_interface()
+            break
 
 
 #def certificate_generation():
@@ -116,7 +151,9 @@ def signing_interface():
             break
 
         elif event == "Verificar Firma":
-            progress_bar(message = "Verificando firma...")
+            window.close()
+            verify_signature()
+            break
 
 
 
