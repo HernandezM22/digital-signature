@@ -45,7 +45,10 @@ def get_file_hash(file_name):
 
 def sign_document():
     sg.theme("LightBlue2")
-    layout = [[sg.T("")], [sg.Text("Escoger un documento: "), sg.Input(), sg.FileBrowse(key="-IN-")],[sg.Button("Firmar"), sg.Button("Atras")]]
+    layout = [[sg.T("")],
+    [sg.Text("Escoger un documento: "), sg.Input(), sg.FileBrowse(key="-IN-")],
+    [sg.Text("Escoger una llave privada: "), sg.Input(), sg.FileBrowse(key="-KEY-")],
+    [sg.Button("Firmar"), sg.Button("Atras")]]
 
     window = sg.Window("Firma de documentos", layout)
 
@@ -57,12 +60,12 @@ def sign_document():
             progress_bar(message="Firmando documento...")
 
             doc = values["-IN-"]
+            k = values["-KEY-"]
             file_hash = str(get_file_hash(doc))
-            key = RSA.import_key(open("private.pem").read())
-            hs = SHA256.new(file_hash.encode("ascii"))
+            key = RSA.import_key(open(k).read())
+            hs = SHA256.new(file_hash.encode("utf-8"))
             sgnr = pss.new(key)
             signature = sgnr.sign(hs)
-
             file_out = open("document_signature.pem", "wb")
             file_out.write(signature)
             file_out.close()
@@ -75,7 +78,10 @@ def sign_document():
 
 def verify_signature():
     sg.theme("LightBlue2")
-    layout = [[sg.T("")], [sg.Text("Escoger un documento: "), sg.Input(), sg.FileBrowse(key="-IN-")],[sg.Button("Verificar"), sg.Button("Atras")]]
+    layout = [[sg.T("")], [sg.Text("Escoger una llave publica: "), sg.Input(), sg.FileBrowse(key="-IN-")],
+    [sg.Text("Escoger una firma:     "), sg.Input(), sg.FileBrowse(key="-SIG-")],
+    [sg.Text("Escoger un documento:     "), sg.Input(), sg.FileBrowse(key="-DOC-")],
+    [sg.Button("Verificar"), sg.Button("Atras")]]
 
     window = sg.Window("Verificación de fimas", layout)
 
@@ -84,24 +90,29 @@ def verify_signature():
         if event == sg.WIN_CLOSED or event =="Exit":
             break
         elif event == "Verificar":
+
             progress_bar(message="Verificando firma...")
 
-            doc = values["-IN-"]
+            doc = values["-DOC-"]
+            p_key = values["-IN-"]
+            sig = values["-SIG-"]
+
             file_hash = str(get_file_hash(doc))
-            key = RSA.import_key(open("private.pem").read())
-            hs = SHA256.new(file_hash.encode("ascii"))
-            sgnr = pss.new(key)
-            signature = sgnr.sign(hs)
 
-            p_key = RSA.import_key(open('public.pem').read())
-            hs = SHA256.new(file_hash.encode("ascii"))
+            sig = open(sig, "rb")
+            sig = sig.read()
 
+            key = RSA.import_key(open('public.pem').read())
+            hs = SHA256.new(file_hash.encode("utf-8"))
             verifier = pss.new(key)
+
             try:
-                verifier.verify(hs, signature)
-                sg.popup("La firma es autentica")
+                verifier.verify(hs, sig)
+                sg.popup("The signature is authentic.")
             except (ValueError, TypeError):
-                sg.popup("La firma no es autentica")
+                sg.popup("The signature is not authentic.")
+
+
 
         elif event == "Atras":
             window.close()

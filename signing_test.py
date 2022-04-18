@@ -4,10 +4,16 @@ from Crypto.PublicKey import RSA
 from Crypto import Random
 
 message = 'To be signed'
-a = message.encode("utf-8")
+a = message.encode("ascii")
 key = RSA.import_key(open('private.pem').read())
 h = SHA256.new(a)
 signature = pss.new(key).sign(h)
+print(signature)
+
+file_out = open("z.txt", "wb")
+file_out.write(signature)
+file_out.close()
+
 
 
 key = RSA.import_key(open('public.pem').read())
