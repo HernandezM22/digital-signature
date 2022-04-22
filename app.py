@@ -8,16 +8,17 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
 from Crypto.Signature import pss
 
+#Coleccion de usuarios y contraseñas. Debe moverse a base de datos y/o archivo contenedor
 admin_usernames = ["admin"]
 usernames = ["user1", "user2"]
 passwords = ["123","abcd"]
 
-
-
-
+#Funcion que genera un par de llaves publica-privada siguiente el algoritmo RSA
 def rsa_key_generation():
 
+    #Clave de 2048 bits (o 256 bytes)
     key = RSA.generate(2048)
+    #Se exporta en formato PEM para facilitar su lectura
     private_key = key.export_key(format="PEM")
     file_out = open("private.pem", "wb")
     file_out.write(private_key)
@@ -28,21 +29,22 @@ def rsa_key_generation():
     file_out.write(public_key)
     file_out.close()
 
-
+#Funcion que lee los bits de un archivo de cualquier tipo y les aplica la funcion SHA-256
 def get_file_hash(file_name):
 
     file_hash = hashlib.sha256()
 
+    #Se usa específicamente el modo 'rb' para leer en bits
     with open(file_name, "rb") as file:
         ck = 0
-
+        #Se lee de 1024 en 1024 para evitar errores de lectura
         while ck != b'':
             ck = file.read(1024)
             file_hash.update(ck)
-
+    #Devuelve un hash específico del archivo. No puede haber 2 iguales para archivos distintos
     return file_hash.hexdigest()
 
-
+#Interfaz y algoritmo de firma de documentos
 def sign_document():
     sg.theme("LightBlue2")
     layout = [[sg.T("")],
@@ -58,15 +60,15 @@ def sign_document():
             break
         elif event == "Firmar":
             progress_bar(message="Firmando documento...")
-
+            #Se leen valores de la ventana
             doc = values["-IN-"]
             k = values["-KEY-"]
-            file_hash = str(get_file_hash(doc))
-            key = RSA.import_key(open(k).read())
-            hs = SHA256.new(file_hash.encode("utf-8"))
+            file_hash = str(get_file_hash(doc)) #Se hashea el documento para crear un ID identificador
+            key = RSA.import_key(open(k).read()) #Se lee la llave privada
+            hs = SHA256.new(file_hash.encode("utf-8")) #Se hashea el identificador por motivos de seguridad
             sgnr = pss.new(key)
             signature = sgnr.sign(hs)
-            file_out = open("document_signature.pem", "wb")
+            file_out = open("document_signature.pem", "wb") #Se firma y se escribe dicha firma en otro archivo PEM
             file_out.write(signature)
             file_out.close()
             sg.popup("Firma exitosa")
@@ -76,6 +78,7 @@ def sign_document():
             signing_interface()
             break
 
+#Interfaz y algoritmo de verificación de firmas
 def verify_signature():
     sg.theme("LightBlue2")
     layout = [[sg.T("")], [sg.Text("Escoger una llave publica: "), sg.Input(), sg.FileBrowse(key="-IN-")],
@@ -92,25 +95,25 @@ def verify_signature():
         elif event == "Verificar":
 
             progress_bar(message="Verificando firma...")
-
+            #Se leen los contenidos de la ventana
             doc = values["-DOC-"]
             p_key = values["-IN-"]
             sig = values["-SIG-"]
 
-            file_hash = str(get_file_hash(doc))
+            file_hash = str(get_file_hash(doc)) #Se hashea el documento de nuevo para verificar la autenticidad de la firma
 
-            sig = open(sig, "rb")
+            sig = open(sig, "rb") #Se lee la firma en bits
             sig = sig.read()
 
-            key = RSA.import_key(open('public.pem').read())
-            hs = SHA256.new(file_hash.encode("utf-8"))
-            verifier = pss.new(key)
+            key = RSA.import_key(open(p_key).read())
+            hs = SHA256.new(file_hash.encode("utf-8")) #Se vuelve a hashear el ID del documento
+            verifier = pss.new(key) #Se inicia una instancia de verificación basada en la clave pública
 
-            try:
+            try: #Diseño de manejo de excepciones para comprobar si la firma es legítima o no
                 verifier.verify(hs, sig)
-                sg.popup("The signature is authentic.")
+                sg.popup("La firma es auténtica.")
             except (ValueError, TypeError):
-                sg.popup("The signature is not authentic.")
+                sg.popup("La firma no es auténtica.")
 
 
 
@@ -122,7 +125,7 @@ def verify_signature():
 
 #def certificate_generation():
 
-
+#Animación de la barra de progreso
 def progress_bar(message):
     sg.theme('LightBlue2')
     layout = [[sg.Text(message)],
@@ -137,6 +140,7 @@ def progress_bar(message):
         window['progbar'].update_bar(i + 1)
     window.close()
 
+#Interfaz de la opcion "Firmar documento"
 def signing_interface():
 
     sg.theme("LightBlue2")
@@ -167,7 +171,7 @@ def signing_interface():
             break
 
 
-
+#Interfaz de la opción "Creación de llaves"
 def gen_signature():
     sg.theme("LightBlue2")
 
@@ -193,7 +197,7 @@ def gen_signature():
             sg.popup("Generación completa")
 
 
-
+#Lógica del menú
 def menu():
     sg.theme("LightBlue2")
     layout = [[sg.Text("Menu")],
@@ -212,6 +216,7 @@ def menu():
             window.close()
             signing_interface()
 
+#Lógica del sistema de inicio de sesión
             
 def login():
     global usernames, admin_usernames, passwords
@@ -239,6 +244,7 @@ def login():
 
     window.close()
 
+#Función principal
 def main():
 
     if login():
@@ -246,5 +252,5 @@ def main():
 
 
 
-
+#Inicio del programa
 main()
