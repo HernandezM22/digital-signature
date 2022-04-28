@@ -1,33 +1,100 @@
 import PySimpleGUI as sg
-import os
+from OpenSSL import crypto
+import OpenSSL.crypto
 from Crypto.PublicKey import RSA
-import libnum
-import sys
 import hashlib
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
 from Crypto.Signature import pss
+from datetime import datetime
+from OpenSSL import crypto, SSL
 
 #Coleccion de usuarios y contraseñas. Debe moverse a base de datos y/o archivo contenedor
 admin_usernames = ["admin"]
 usernames = ["user1", "user2"]
 passwords = ["123","abcd"]
 
+curr_usr = ""
+
+
+#Función que verifica que el certificado corresponda a la firma
+
+def check_certificate(certificate, key):
+    try:
+        p_key = open(key).read()
+        load = crypto.load_privatekey(crypto.FILETYPE_PEM, p_key)
+
+    except crypto.Error:
+        sg.popup("Archivo de llave incorrecto")
+
+    try:
+
+        certific = crypto.load_certificate(crypto.FILETYPE_PEM, open(certificate).read())
+
+    except crypto.Error:
+        sg.popup("Archivo de certificado incorrecto")
+
+    verifier = SSL.Context(OpenSSL.SSL.TLSv1_METHOD)
+
+    verifier.use_privatekey(load)
+    verifier.use_certificate(certific)
+    try:
+        verifier.check_privatekey()
+        return True
+    except SSL.Error:
+        sg.popup("Certificado no coincide")
+        return False
+
+def check_date_validity(certificate):
+
+    try:
+
+        certific = crypto.load_certificate(crypto.FILETYPE_PEM, open(certificate).read())
+
+    except crypto.Error:
+        sg.popup("Archivo de certificado incorrecto")
+
+
+    expiration_date = certific.get_notAfter().decode()
+    y = int(expiration_date[:4])
+    m = int(expiration_date[4:6])
+    d = int(expiration_date[6:8])
+
+    expiration_date = datetime(y, m ,d)
+    today = datetime.now()
+
+    if expiration_date > today:
+        return True 
+
+    else:
+        sg.popup("El certificado ha expirado y no se puede firmar con él. Por favor solicite uno nuevo.")
+        return False
+
+
+
 #Funcion que genera un par de llaves publica-privada siguiente el algoritmo RSA
-def rsa_key_generation():
+def rsa_key_generation(city="Monterrey", state="Nuevo Leon"):
+
+    priv_name = curr_usr+"_priv.pem" 
+    pub_name = curr_usr+"_pub.pem"
+    cert_name = curr_usr+"_cert.crt"
 
     #Clave de 2048 bits (o 256 bytes)
     key = RSA.generate(2048)
     #Se exporta en formato PEM para facilitar su lectura
-    private_key = key.export_key(format="PEM")
-    file_out = open("private.pem", "wb")
+    private_key = key.export_key(format="PEM", pkcs=8)
+    file_out = open(priv_name, "wb")
     file_out.write(private_key)
     file_out.close()
 
     public_key = key.publickey().export_key(format="PEM")
-    file_out = open("public.pem", "wb")
+    file_out = open(pub_name, "wb")
     file_out.write(public_key)
     file_out.close()
+
+    certificate_generation(name = curr_usr, country= "MX", country_code="MX",
+    city=city, state=state, organiz="TELETON MTY", serial=0, validity_s=0, validity_e=60*20, pu_key=pub_name, pr_key=priv_name,
+    output_f=cert_name)
 
 #Funcion que lee los bits de un archivo de cualquier tipo y les aplica la funcion SHA-256
 def get_file_hash(file_name):
@@ -50,6 +117,7 @@ def sign_document():
     layout = [[sg.T("")],
     [sg.Text("Escoger un documento: "), sg.Input(), sg.FileBrowse(key="-IN-")],
     [sg.Text("Escoger una llave privada: "), sg.Input(), sg.FileBrowse(key="-KEY-")],
+    [sg.Text("Escoger un certificado: "), sg.Input(), sg.FileBrowse(key="-CERT-")],
     [sg.Button("Firmar"), sg.Button("Atras")]]
 
     window = sg.Window("Firma de documentos", layout)
@@ -59,19 +127,22 @@ def sign_document():
         if event == sg.WIN_CLOSED or event =="Exit":
             break
         elif event == "Firmar":
-            progress_bar(message="Firmando documento...")
-            #Se leen valores de la ventana
-            doc = values["-IN-"]
-            k = values["-KEY-"]
-            file_hash = str(get_file_hash(doc)) #Se hashea el documento para crear un ID identificador
-            key = RSA.import_key(open(k).read()) #Se lee la llave privada
-            hs = SHA256.new(file_hash.encode("utf-8")) #Se hashea el identificador por motivos de seguridad
-            sgnr = pss.new(key)
-            signature = sgnr.sign(hs)
-            file_out = open("document_signature.pem", "wb") #Se firma y se escribe dicha firma en otro archivo PEM
-            file_out.write(signature)
-            file_out.close()
-            sg.popup("Firma exitosa")
+
+            if check_certificate(certificate = values["-CERT-"], key=values["-KEY-"]):
+                if check_date_validity(certificate = values["-CERT-"]):
+                    progress_bar(message="Firmando documento...")
+                    #Se leen valores de la ventana
+                    doc = values["-IN-"]
+                    k = values["-KEY-"]
+                    file_hash = str(get_file_hash(doc)) #Se hashea el documento para crear un ID identificador
+                    key = RSA.import_key(open(k).read()) #Se lee la llave privada
+                    hs = SHA256.new(file_hash.encode("utf-8")) #Se hashea el identificador por motivos de seguridad
+                    sgnr = pss.new(key)
+                    signature = sgnr.sign(hs)
+                    file_out = open("document_signature.pem", "wb") #Se firma y se escribe dicha firma en otro archivo PEM
+                    file_out.write(signature)
+                    file_out.close()
+                    sg.popup("Firma exitosa")
 
         elif event == "Atras":
             window.close()
@@ -123,7 +194,42 @@ def verify_signature():
             break
 
 
-#def certificate_generation():
+def certificate_generation(name, country, country_code,
+    city, state, organiz, serial, validity_s, validity_e, pu_key, pr_key, output_f):
+
+    cert = crypto.X509()
+    cert.get_subject().C = country
+    cert.get_subject().ST = state
+    cert.get_subject().L = city
+    cert.get_subject().O = organiz
+    cert.get_subject().OU = "unit"
+    cert.get_subject().CN = name 
+    cert.get_subject().emailAddress = "example@email.com"
+    cert.get_issuer().C = country
+    cert.get_issuer().ST = state
+    cert.get_issuer().L = city
+    cert.get_issuer().O = organiz
+    cert.get_issuer().OU = "unit"
+    cert.get_issuer().CN = name 
+    cert.get_issuer().emailAddress = "example@email.com"
+    cert.set_serial_number(serial)
+    cert.gmtime_adj_notBefore(0)
+    cert.gmtime_adj_notAfter(validity_e)
+    cert.set_issuer(cert.get_issuer())
+    with open(pu_key, "r") as p_key:
+            p_key_s = p_key.read()
+            a = crypto.load_publickey(crypto.FILETYPE_PEM, p_key_s)
+    cert.set_pubkey(a)
+
+
+    with open(pr_key, "r") as pri_key:
+        pri_key_s = pri_key.read()
+        k = crypto.load_privatekey(crypto.FILETYPE_PEM, pri_key_s)
+
+    cert.sign(k, 'sha256')
+    with open(output_f, "wt") as f:
+        f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8"))
+
 
 #Animación de la barra de progreso
 def progress_bar(message):
@@ -236,6 +342,8 @@ def login():
             if event == "Entrar":
                 if values['-usrnm-'] in usernames and values['-pwd-'] in passwords:
                     sg.popup("Bienvenido!")
+                    global curr_usr
+                    curr_usr = values['-usrnm-']
                     window.close()
                     return True
                     break
