@@ -56,14 +56,21 @@ def check_date_validity(certificate):
 
 
     expiration_date = certific.get_notAfter().decode()
+    print(expiration_date)
     y = int(expiration_date[:4])
     m = int(expiration_date[4:6])
     d = int(expiration_date[6:8])
 
+    print(y, m, d)
+
     expiration_date = datetime(y, m ,d)
     today = datetime.now()
 
-    if expiration_date > today:
+    print(expiration_date)
+    print(today)
+    print(expiration_date > today)
+
+    if expiration_date >= today:
         return True 
 
     else:
@@ -93,7 +100,7 @@ def rsa_key_generation(city="Monterrey", state="Nuevo Leon"):
     file_out.close()
 
     certificate_generation(name = curr_usr, country= "MX", country_code="MX",
-    city=city, state=state, organiz="TELETON MTY", serial=0, validity_s=0, validity_e=60*20, pu_key=pub_name, pr_key=priv_name,
+    city=city, state=state, organiz="TELETON MTY", serial=0, validity_s=0, validity_e=60*60*24, pu_key=pub_name, pr_key=priv_name,
     output_f=cert_name)
 
 #Funcion que lee los bits de un archivo de cualquier tipo y les aplica la funcion SHA-256
@@ -196,6 +203,7 @@ def verify_signature():
 
 def certificate_generation(name, country, country_code,
     city, state, organiz, serial, validity_s, validity_e, pu_key, pr_key, output_f):
+    today = datetime.now()
 
     cert = crypto.X509()
     cert.get_subject().C = country
