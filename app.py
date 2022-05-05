@@ -15,6 +15,7 @@ usernames = ["user1", "user2"]
 passwords = ["123","abcd"]
 
 curr_usr = ""
+var_ad = ""
 
 
 #Función que verifica que el certificado corresponda a la firma
@@ -211,7 +212,7 @@ def certificate_generation(name, country, country_code,
     cert.get_subject().L = city
     cert.get_subject().O = organiz
     cert.get_subject().OU = "unit"
-    cert.get_subject().CN = name 
+    cert.get_subject().CN = "Teleton" 
     cert.get_subject().emailAddress = "example@email.com"
     cert.get_issuer().C = country
     cert.get_issuer().ST = state
@@ -271,7 +272,7 @@ def signing_interface():
 
         elif event == "Atras":
             window.close()
-            menu()
+            admin_menu()
             break
 
         elif event == "Firmar Documento":
@@ -302,7 +303,7 @@ def gen_signature():
 
         elif event == "Atras":
             window.close()
-            menu()
+            admin_menu()
             break
 
         elif event == "Generar llave":
@@ -313,6 +314,22 @@ def gen_signature():
 
 #Lógica del menú
 def menu():
+    sg.theme("LightBlue2")
+    layout = [[sg.Text("Menu")],
+                [sg.Button("Firma de documentos"), sg.Button("Salir")]]
+
+    window = sg.Window("Menú principal", layout)
+
+    while True:
+        event, values = window.read()
+        if event == "Salir" or event == sg.WIN_CLOSED:
+            break
+        elif event == "Firma de documentos":
+            window.close()
+            signing_interface()
+
+#Lógica del menú
+def admin_menu():
     sg.theme("LightBlue2")
     layout = [[sg.Text("Menu")],
                 [sg.Button("Creación de llaves"), sg.Button("Firma de documentos"), sg.Button("Salir")]]
@@ -348,9 +365,19 @@ def login():
             break
         else:
             if event == "Entrar":
-                if values['-usrnm-'] in usernames and values['-pwd-'] in passwords:
+                global curr_usr
+                global var_ad
+                if values['-usrnm-'] in admin_usernames and values['-pwd-'] in passwords:
+                    sg.popup("Bienvenido administrador!")
+
+                    global var_ad
+                    curr_usr = values['-usrnm-']
+                    var_ad = "Y"
+                    window.close()
+                    return True
+                    break
+                elif values['-usrnm-'] in usernames and values['-pwd-'] in passwords:
                     sg.popup("Bienvenido!")
-                    global curr_usr
                     curr_usr = values['-usrnm-']
                     window.close()
                     return True
@@ -363,8 +390,10 @@ def login():
 #Función principal
 def main():
 
-    if login():
-        menu()
+    if login() and var_ad == "Y":
+        admin_menu()
+    else:
+        menu()    
 
 
 
